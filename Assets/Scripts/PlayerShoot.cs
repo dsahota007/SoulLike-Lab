@@ -15,11 +15,9 @@ public class ThirdPersonShooterController : MonoBehaviour
 
     void Start()
     {
-        // Lock the mouse cursor for clean aiming
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // Make sure our FreeLook camera is using "Mouse X" & "Mouse Y"
         thirdPersonCamera.m_XAxis.m_InputAxisName = "Mouse X";
         thirdPersonCamera.m_YAxis.m_InputAxisName = "Mouse Y";
     }
@@ -28,8 +26,6 @@ public class ThirdPersonShooterController : MonoBehaviour
     {
         HandleAiming();
         HandleCameraRotation();
-        // ^ If you prefer Cinemachine to handle all rotation automatically,
-        //   you can comment this out. 
     }
 
     void HandleAiming()
@@ -40,13 +36,20 @@ public class ThirdPersonShooterController : MonoBehaviour
 
             if (isAiming)
             {
+                // Snap the ADS camera to the current FreeLook camera position and rotation
+                adsCamera.transform.position = thirdPersonCamera.transform.position;
+                adsCamera.transform.rotation = thirdPersonCamera.transform.rotation;
+
                 // Switch to ADS camera
                 thirdPersonCamera.Priority = 0;
                 adsCamera.Priority = 20;
 
-                // ** Do NOT disable FreeLook input axes here ** 
-                // thirdPersonCamera.m_XAxis.m_InputAxisName = "";
-                // thirdPersonCamera.m_YAxis.m_InputAxisName = "";
+                // Remove input from FreeLook
+                thirdPersonCamera.m_XAxis.m_InputAxisName = "";
+                thirdPersonCamera.m_YAxis.m_InputAxisName = "";
+
+                // Immediately align player to camera direction
+                RotatePlayerToCamera();
             }
             else
             {
@@ -54,24 +57,23 @@ public class ThirdPersonShooterController : MonoBehaviour
                 thirdPersonCamera.Priority = 10;
                 adsCamera.Priority = 0;
 
-                // Again, do NOT worry about restoring the input axis; 
-                // we never removed them this time.
+                // Restore FreeLook input
+                thirdPersonCamera.m_XAxis.m_InputAxisName = "Mouse X";
+                thirdPersonCamera.m_YAxis.m_InputAxisName = "Mouse Y";
             }
         }
 
-        // If you still want the player to auto-rotate to the camera direction while aiming...
+        // While aiming, align player to the camera's forward direction
         if (isAiming)
         {
             RotatePlayerToCamera();
         }
-        // ...otherwise, comment the above out if you’d rather keep player orientation independent.
     }
 
     void RotatePlayerToCamera()
     {
-        // Rotate the player so they face the camera's forward direction
         Vector3 aimDirection = cameraTransform.forward;
-        aimDirection.y = 0f; // Flatten to avoid tilting
+        aimDirection.y = 0f;
 
         if (aimDirection.sqrMagnitude > 0.001f)
         {
@@ -86,16 +88,25 @@ public class ThirdPersonShooterController : MonoBehaviour
 
     void HandleCameraRotation()
     {
-        // Simple manual camera control (if you’re mixing Cinemachine with a custom approach)
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 
-        // Rotate camera horizontally
-        cameraTransform.Rotate(Vector3.up * mouseX);
+        if (!isAiming)
+        {
+            // Rotate camera + player in FreeLook mode
+            transform.Rotate(Vector3.up * mouseX);
 
-        // Clamp vertical rotation
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -70f, 80f);
-        cameraTransform.localRotation = Quaternion.Euler(xRotation, cameraTransform.localEulerAngles.y, 0f);
+            xRotation -= mouseY;
+            xRotation = Mathf.Clamp(xRotation, -70f, 80f);
+            cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        }
+        else
+        {
+            // While aiming, control the ADS camera directly
+            xRotation -= mouseY;
+            xRotation = Mathf.Clamp(xRotation, -70f, 80f);
+
+            adsCamera.transform.rotation = Quaternion.Euler(xRotation, adsCamera.transform.eulerAngles.y + mouseX, 0f);
+        }
     }
 }
